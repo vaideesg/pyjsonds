@@ -4,71 +4,48 @@ import json
 import glob
 
 
-class roiterator(object):
-    def __init__(self, obj):
-        self.obj = obj
-        self.counter = obj._indices.__iter__()
-
-    def __next__(self):
-        return self.counter.__next__()
-
-
-def is_primitive(x):
-    return isinstance(x, (int, float, bool, str, type(None)))
-
-
-def is_subset(mydata, other):
-    return len([i for i in mydata if i not in other]) == 0
-
-
-def is_equal_sets(mydata, other):
-    return is_subset(mydata, other) and is_subset(other, mydata)
-
-
-def set_diff(mydata, other, field):
-    return len([i for i in mydata[field] if i not in other[field]]) > 0
-
-
 def onlyprimitives(dlist):
     return False not in [is_primitive(x) for x in dlist]
 
-
-class jsonds(object):
-    def __init__(self, parent, data, uri, name, object_index, recurse,
+class readonly(object):
+    def __init__(self, parent, data, name, object_index, recurse,
                  context, collect):
         self._state_incr()
+
         self._parent = parent
-        self._endpoint = parent._endpoint
-        self._uri = uri
         self._data = data
         self._name = name
+
+        # Array
         self._entrylist = []
         self._indices = []
         self._AllowNumerical_Index = False
+
         self._todo = []
-        self._object_index = object_index
-        self._schemas = parent._schemas
-        #print("Getting {0}.{1}".format(self._uri, ("" if self._name is None
-        #                                           else self._name)))
+
+        # Recursion finder
         self._collector = (self._parent._collector if self._parent is not None
                            else {})
-        if collect is None:
-            collect = collectupdates()
+        self._object_index = object_index
+
         if object_index in self._collector:
             print("************** Why is it already there?")
+
         self._collector[object_index] = self
-        self._do_refresh(context, data, recurse, 'Constructor', None, collect)
         self._state_decr()
 
+    # Done
     def _state_incr(self):
         if ('_state' not in self.__dict__):
             self.__dict__['_state'] = state()
         self.__dict__['_state'].incr()
 
+    # Done
     def _state_decr(self):
         if '_state' in self.__dict__:
             self.__dict__['_state'].decr()
 
+    # TODO
     def __iter__(self):
         if (self._spec is not None and 'type' in self._spec.spec and
                 self._spec.spec['type'] != 'array'):
@@ -77,6 +54,7 @@ class jsonds(object):
             self.refresh(True)
         return roiterator(self)
 
+    # TODO
     def __getattr__(self, name):
         if name.startswith('_'):
             return self.__dict__[name] if name in self.__dict__ else None
@@ -90,6 +68,7 @@ class jsonds(object):
             return None
         raise AttributeError('Invalid attribute ' + name)
 
+    # TODO
     def __setattr__(self, name, value):
         if name == "Actions":
             return
@@ -116,9 +95,11 @@ class jsonds(object):
                 raise ValueError("Could not update: {0}={1}".
                                  format(name, value))
 
+    # Done
     def __len__(self):
         return len(self._indices)
 
+    # TODO
     def __getitem__(self, key):
         if (len(self._indices) == 0 and len(self._todo) > 0 and
                 isinstance(key, int) and
@@ -139,6 +120,7 @@ class jsonds(object):
                              collectupdates())
         return self._entrylist[self._indices.index(key)]
 
+    # TODO
     def __setitem__(self, key, value):
         if (len(self._entrylist) > 0 and
                 not isinstance(self._entrylist[0], int)):
@@ -154,12 +136,14 @@ class jsonds(object):
             # TODO: Don't allow overwrites. will cause references to be lost
             nvalue = self.my_allow_add(key, value)
 
+    # TODO
     def __delitem__(self, key):
         if self.__dict__['_state'].is_creating():
             del self._indices[idx]
             del self._entrylist[idx]
         self.my_allow_del(key)
 
+    # TODO
     def refresh(self, fetchall=False, **kwargs):
         # refreshes immediate object!
         collector = collectupdates()
@@ -169,32 +153,41 @@ class jsonds(object):
                          collector, **kwargs)
         return self
 
+    # TODO
     def fields(self):
         return [i for i in self.__dict__
                 if not i.startswith('_') and
                 not isinstance(self.__dict__[i], roobject)]
 
+    # TODO
     def value(self, field):
         return self.__dict__[field]
 
+    # TODO
     def __contains__(self, value):
         return False
 
+    # TODO
     def my_before(self, object_index, value):
         pass
 
+    # TODO
     def my_edit_value(self, name, value):
         raise AttributeError("Cannot modify object")
 
+    # TODO
     def my_allow_add(self, key, value):
         raise AttributeError("Cannot modify object")
 
+    # TODO
     def my_allow_del(self, key):
         raise AttributeError("Cannot modify object")
 
+    # TODO
     def has_member(self, member_name):
         return member_name in self.__dict__
 
+    # TODO
     def __str__(self):
         s = []
         separator = ", "
@@ -209,10 +202,12 @@ class jsonds(object):
                 separator = "\n"
         return separator.join(s)
 
+    # Done
     @property
     def Indices(self):
         return list(self._indices)
 
+    # TODO
     def getit(self, *args):
         obj = self
         for i in args:
@@ -221,6 +216,7 @@ class jsonds(object):
             obj = obj.__dict__[i]
         return obj
 
+    # TODO
     @property
     def Redfish_Settings(self):
         if self.has_member('@Redfish.Settings'):
@@ -228,6 +224,7 @@ class jsonds(object):
             return self.getit('@Redfish.Settings').SettingsObject
         return None
 
+    # TODO
     def as_json(self):
         gfields = sorted([i for i in self.__dict__.keys()
                           if not i.startswith('_')])
@@ -235,74 +232,10 @@ class jsonds(object):
                     if isinstance(self.__dict__[x], roobject) else
                     self.__dict__[x]), gfields)))
 
-    # none = all
-    # only = only
-    # exclude = all-exclude
-    # only, exclude = only-exclude
-    # exclude, include = all-exclude+include
-    # include = error
-    # only, include = error
-    # only, exclude, include = only-exclude+include
 
-    def Properties(self, only=[], exclude=[], include=[], no_prefix=True):
-        if len(exclude) == 0 and len(include) != 0:
-            print("WARNING: include cannot be provided without exclude")
-            include = []
-        # print("==== only= {0}\n===== exclude={1}\n======include={2}".
-        #       format(only, exclude, include))
-        return self._properties("", {}, only, exclude, include, no_prefix)
-
-    def _properties(self, prefix, entry, only, exclude, include, no_prefix):
-        short_list = [(prefix + i, i) for i in self.__dict__
-                      if not i.startswith('_') and
-                      not i.startswith('@') and
-                      not callable(self.__dict__[i]) and
-                      not isinstance(self.__dict__[i], roobject)]
-
-        if len(only) != 0:
-            short_list = [(a, b) for s in only for (a, b) in short_list
-                          if a == s or a.startswith(s)]
-        if len(exclude) != 0:
-            excl_list = [(a, b) for s in exclude for (a, b) in short_list
-                         if a == s or a.startswith(s)]
-            excl_obj = [a for (a, b) in excl_list]
-            short_list = [(a, b) for (a, b) in short_list
-                          if a not in excl_obj]
-        if len(include) != 0:
-            short_list.extend([(a, b) for s in include for (a, b)
-                               in excl_list if a == s or a.startswith(s)])
-        entry.update(dict(zip(map(lambda x: x[1] if no_prefix and
-                                  x[1] not in entry else x[0], short_list),
-                     map(lambda x: self.__dict__[x[1]], short_list))))
-        children = [i for i in self.__dict__
-                    if not i.startswith('_') and
-                    not i.startswith('@') and
-                    not callable(self.__dict__[i]) and
-                    isinstance(self.__dict__[i], roobject)]
-        for i in children:
-            self.__dict__[i]._properties(i + "." if prefix == ""
-                                         else prefix + i + ".", entry, only,
-                                         exclude, include, no_prefix)
-        return entry
-
+    # Done
     def _do_refresh(self, context, mydata, recurse, gcontext, fields,
                     collect, **condition):
-
-        # condition can contain '$skip': count
-        if gcontext in ['Refresh', 'Constructor']:
-            self._data = (mydata if self._data is not None and
-                          self._uri == self._parent._uri
-                          else self._endpoint.get(self._name, self._uri, True,
-                                                  **condition))
-            mydata = self._data
-
-        if mydata is None or len(mydata) == 0:
-            return
-
-        if gcontext in ['Constructor']:
-            self.my_before(self._object_index, context)
-
-        collect.set_context(self._uri)
 
         if isinstance(mydata, dict):
             for field in mydata:
@@ -322,8 +255,6 @@ class jsonds(object):
                             self.__dict__[field] != nvalue):
                         # apply value if created or modified
                         self.__dict__[field] = nvalue
-                        # track this value for updates
-                        collect.set(field, nvalue)
                     continue
 
                 # list of primitives, process here
@@ -828,4 +759,30 @@ class editable(coercable):
                 self._parent.__dict__[self._name + "@odata.count"] = len(self._indices)
         else:
             raise AttributeError("Deletion of entry failed!")
+
+class roiterator(object):
+    def __init__(self, obj):
+        self.obj = obj
+        self.counter = obj._indices.__iter__()
+
+    def __next__(self):
+        return self.counter.__next__()
+
+
+def is_primitive(x):
+    return isinstance(x, (int, float, bool, str, type(None)))
+
+
+def is_subset(mydata, other):
+    return len([i for i in mydata if i not in other]) == 0
+
+
+def is_equal_sets(mydata, other):
+    return is_subset(mydata, other) and is_subset(other, mydata)
+
+
+def set_diff(mydata, other, field):
+    return len([i for i in mydata[field] if i not in other[field]]) > 0
+
+
 
