@@ -40,9 +40,6 @@ class jsonds():
                 self.__dict__[name] = jsonds({})
             self._init(self.__dict__[name], value)
 
-    def __repr__(self):
-        return self._value
-
     def __str__(self):
         return str(self._value)
 
@@ -104,45 +101,85 @@ class jsonds():
                                          exclude, include, no_prefix)
         return entry
 
+    @property
+    def Json(self):
+        if self._type == 'dict':
+            gfields = sorted([i for i in self.__dict__.keys()
+                          if not i.startswith('_')])
+            retval = dict(zip(gfields, map(lambda x: (self.__dict__[x].Json
+                    if isinstance(self.__dict__[x], jsonds) else
+                    self.__dict__[x]), gfields)))
+        elif self._type == 'list':
+            retval = [i.Json if isinstance(i, jsonds) else i
+                      for i in self._entry]
+        else:
+            retval = self._value
+        return retval
+
     def _init(self, obj, data):
+        self._type = type(data).__name__
+        sname = "" if self._name is None else self._name
         if isinstance(data, dict):
             for i in data:
                 if isprim(data[i]):
                     obj.__dict__[i] = data[i]
                 else:
-                    obj.__dict__[i] = jsonds(data[i])
+                    key = "{0}.{1}".format(sname, i)
+                    data_id = id(data[i])
+                    if data_id not in self._collector:
+                        self._collector[data_id] = jsonds(data[i], key, self)
+                        self._ref[data_id] = [key]
+                    else:
+                        self._ref[data_id].append(key)
+                    obj.__dict__[i] = self._collector[data_id]
         elif isinstance(data, list):
             for i in data:
                 if isprim(i):
                     obj._entry.append(i)
                     obj._indices.append(len(obj._entry)-1)
                 else:
-                    obj._entry.append(jsonds(i))
+                    key = "{0}.{1}".format(sname, len(obj._entry))
+                    data_id = id(i)
+                    if data_id not in self._collector:
+                        self._collector[data_id] = jsonds(i, key, self)
+                        self._ref[data_id] = [key]
+                    else:
+                        self._ref[data_id].append(key)
+                    obj._entry.append(self._collector[data_id])
                     obj._indices.append(len(obj._entry)-1)
         else:
             obj._value = data
 
-    def __init__(self, data):
+    def __init__(self, data, name=None, parent=None):
+        print("______ {0} __".format(name))
         self._data = data
+        self._name = name
+        self._parent = parent
+        self._collector = self._parent._collector if parent is not None else {}
+        self._ref = self._parent._ref if parent is not None else {}
         self._entry = []
         self._indices = []
         self._init(self, data)
 
+obj_e = { 't_abc' :  'y_abc' }
 obj = jsonds({
     'a' : 'b',
     'c' : None,
     'dx' : True,
     'e' : [
-        'j',
+        { 'j' : 'l' },
         'h',
         'i'
     ],
+    'k' : obj_e,
+    'l' : obj_e,
     't' : {
         'y' : 'h',
         'k' : 'y',
         'z' : 'y',
     }
 })
+print(obj.Json)
 print(obj.a)
 print(obj.c)
 print(obj.dx)
@@ -161,4 +198,6 @@ obj.t = None
 print(obj.Properties(only=['t'], no_prefix=False))
 obj.t = { 'f' : 'c' }
 print(obj.Properties(only=['t'], no_prefix=False))
+print({ i : obj._collector[i]._name for i in obj._collector })
+print({ i : obj._ref[i] for i in obj._ref })
 print(jsonds(1))
